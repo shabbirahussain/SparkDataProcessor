@@ -12,6 +12,9 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 import java.io._
 
+import org.apache.spark.sql.functions._
+import org.apache.spark.storage.StorageLevel
+
 /**
   * @author shabbirahussain
   */
@@ -33,6 +36,8 @@ object Main extends Serializable {
     .config("spark.executor.cores",  prop.getProperty("spark.executor.cores"))
     .config("spark.workers.cores",   prop.getProperty("spark.executor.cores"))
     .config("spark.executor.memory", prop.getProperty("spark.executor.memory"))
+    .config("spark.network.timeout", prop.getProperty("spark.network.timeout"))
+    .config("spark.executor.heartbeatInterval", prop.getProperty("spark.executor.heartbeatInterval"))
     .getOrCreate()
 
   val sc: SparkContext = spark.sparkContext
@@ -52,30 +57,32 @@ object Main extends Serializable {
 
     val source = args(0)
     val output = args(1)
+    val greoupSize = args(2).toInt
 
     deleteRecursively(new File(output))
 
     val rawData = readFiles(source)
-    val greoupSize = 6
 
-    var rdd = getGroupedRdd(greoupSize, rawData).persist()
-    var res = rdd
-    for(i<- 1 until greoupSize){
-      rdd = rdd.mapValues(rotateSeq).persist()
-      res = res.union(rdd)
-    }
+    var res = getGroupedRdd(greoupSize, rawData)
 
-    res.
-      mapValues(x=> x.flatMap(y=> Seq(y._1, y._2, y._3))).
-      map(x=> Seq(x._2.head) ++ x._2.drop(3)).
+    val cntMap = res.
+      map(x=> x._2.toSeq.sorted.flatMap(y=> Seq(y._1, y._2, y._3))).
       map(_.mkString(",")).
+      toDF("DATA").groupBy($"DATA").count().
+      filter($"count" > 1).
+      persist(StorageLevel.DISK_ONLY)
+
+    val tot = cntMap.agg(max($"COUNT")).collect()(0).getAs[Long]("max(COUNT)").toDouble
+
+    cntMap.rdd.
+      map(x=> x.getAs[String]("DATA") + "," + x.getAs[Long]("count")/tot).
       coalesce(1, shuffle = false).
       saveAsTextFile(output)
 
     val pw = new PrintWriter(new File(output + "/part-00000.csv"))
-    pw.println("Label," + (1 until greoupSize).
+    pw.println((0 until greoupSize).
       flatMap(i=> Seq(("track_uri" + i), ("artist_uri" + i), ("album_uri" + i))).
-      mkString(","))
+      mkString(",") + ", Label")
 
     scala.io.Source.fromFile(output + "/part-00000").getLines().
       foreach(pw.println)
