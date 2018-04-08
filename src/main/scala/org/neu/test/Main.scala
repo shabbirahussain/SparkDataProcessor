@@ -67,7 +67,7 @@ object Main extends Serializable {
 
     res.
       mapValues(x=> x.flatMap(y=> Seq(y._1, y._2, y._3))).
-      map(x=> x._2.head ++ x._2.drop(2)).
+      map(x=> Seq(x._2.head) ++ x._2.drop(3)).
       map(_.mkString(",")).
       coalesce(1, shuffle = false).
       saveAsTextFile(output)
