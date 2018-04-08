@@ -1,6 +1,6 @@
-SOURCE=/Users/shabbirhussain/Data/Alefiya/data/small/
+SOURCE1=/Users/shabbirhussain/Data/Alefiya/data/tiny/
+SOURCE2=/Users/shabbirhussain/Data/Alefiya/MillionSongs/small/
 OUTPUT=/Users/shabbirhussain/Data/Alefiya/data.csv
-GROUP_SIZE=2
 
 SPARK_BIN_PATH=
 SCALA_BIN_PATH=
@@ -34,10 +34,10 @@ run:
 	${SPARK_BIN_PATH}spark-submit \
 	 	--master local --driver-memory 7g \
 	 	--jars "${FULL_RUNTIME_JARS}" \
-    	--class org.neu.test.Main "${JAR_NAME}" "${SOURCE}" "${OUTPUT}" "${GROUP_SIZE}"
+    	--class org.neu.test.Main "${JAR_NAME}" "${SOURCE1}" "${SOURCE2}" "${OUTPUT}"
 
 ss:
-	${SPARK_BIN_PATH}/spark-shell --driver-memory 7G --executor-memory 7G --executor-cores 3 \
+	${SPARK_BIN_PATH}spark-shell --driver-memory 7G --executor-memory 7G --executor-cores 3 \
 	--jars=${FULL_RUNTIME_JARS} \
 	--conf spark.checkpoint.compress=true
 
